@@ -12,7 +12,7 @@ Written by Nicholas Sharp (nsharp@cs.cmu.edu)
 
 ## Camera and image arguments 
 parser.add_argument('document', help="The text document to process.")
-parser.add_argument('output' help="The filename for the processed document")
+parser.add_argument('output', help="The filename for the processed document")
 parser.add_argument('--delimiters', default=['$','$$'], help="Math delimiters (specify multiple separated by spaces). Default: [$,$$]")
 parser.add_argument('--output-image-dir', default="", help="Output directory for math images")
 parser.add_argument('--output-image-prefix', default="", help="Prefix for filename of output images")
@@ -36,7 +36,7 @@ delims = args.delimiters
 delims.sort(key=len, reverse=True)
 def longestMatchedDelimiter(str, pos):
     for d in delims:
-        if str.startswith(d, beg=pos):
+        if str.startswith(d, pos):
             return d
     return None
 
@@ -44,7 +44,10 @@ def longestMatchedDelimiter(str, pos):
 # Helper to render an equation
 # Returns the path to the image
 def renderEquation(eqStr, iEq):
-    outFilename = os.join(args.output_image_dir, args.output_image_prefix + format(iEq, '04d') + '.' + args.output_image_filetype) 
+
+    print("Generating equation {} from text: {}".format(iEq, eqStr))
+
+    outFilename = os.path.join(args.output_image_dir, args.output_image_prefix + format(iEq, '04d') + '.' + args.output_image_filetype) 
     cmd = ["tex2im/tex2im", '-f', args.output_image_filetype, '-o', outFilename, eqStr]
     subprocess.check_call(cmd)
 
@@ -70,8 +73,10 @@ iChar = 0
 iEq = 0
 while (iChar < len(docString)):
 
+    # print("iChar = {} char = {}".format(iChar, docString[iChar]))
+
     # Increment line count
-    if docString.startswith('\n', beg=iChar):
+    if docString.startswith('\n', iChar):
         iLine += 1
 
 
@@ -83,11 +88,12 @@ while (iChar < len(docString)):
         
         if d is None:
             # Boring old text
-            outputStr.append(docString[iChar])
+            currEquationStr.append(docString[iChar])
             iChar += 1
 
         else:
             # End the equation
+            # print("Ending equation. iChar = {}".format(iChar))
 
             if(d != inEquationDelim):
                 raise Exception("Non-matching nested tags on line {}. Opened with {} but closed with {}.".format(iLine, inEquationDelim, d))
@@ -121,6 +127,7 @@ while (iChar < len(docString)):
             # Start a new equation
             inEquation = True
             inEquationDelim = d
+            # print("Starting equation. iChar = {}".format(iChar))
             iChar += len(d)
         
 if inEquation:
