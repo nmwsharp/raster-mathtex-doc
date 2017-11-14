@@ -3,6 +3,7 @@
 
 import os.path, tempfile, sys, subprocess
 import argparse
+from PIL import Image # `pip install Pillow`. used to get dimensions of images (TODO find something more lightweight)
 
 ## Arguments
 parser = argparse.ArgumentParser(description="""
@@ -17,6 +18,7 @@ parser.add_argument('--delimiters', default=['$','$$'], help="Math delimiters (s
 parser.add_argument('--output-image-dir', default="", help="Output directory for math images")
 parser.add_argument('--output-image-prefix', default="", help="Prefix for filename of output images")
 parser.add_argument('--output-image-filetype', default="png", help="Filetype for output images")
+parser.add_argument('--image-resolution', default="200x200", help="Resolution in DPI for ouputs")
 parser.add_argument('--embedded-image-style', choices=['github-wiki'], default="github-wiki", help="Style for the embedded image tags.")
 
 args = parser.parse_args()
@@ -47,9 +49,17 @@ def renderEquation(eqStr, iEq):
 
     print("Generating equation {} from text: {}".format(iEq, eqStr))
 
+    # tex2im seems to evaluate equation strings in a very bad way... let's use a temp file
+    tempFilename = "temp_rasterdoc_file.tex"
+    tempFile = open(tempFilename, 'w')
+    tempFile.write(eqStr)
+    tempFile.close()
+
     outFilename = os.path.join(args.output_image_dir, args.output_image_prefix + format(iEq, '04d') + '.' + args.output_image_filetype) 
-    cmd = ["tex2im/tex2im", '-f', args.output_image_filetype, '-o', outFilename, eqStr]
+    cmd = ["tex2im/tex2im", '-f', args.output_image_filetype, '-o', outFilename, '-r', args.image_resolution, tempFilename]
     subprocess.check_call(cmd)
+
+    os.remove(tempFilename)
 
     return outFilename
 
@@ -57,7 +67,15 @@ def renderEquation(eqStr, iEq):
 def createTag(eqPath):
 
     if args.embedded_image_style == 'github-wiki':
-        return '[[' + eqPath + ']]'
+
+        # To output images which look nice-ish on github wiki, use 200x200 resolution but embed at half size
+        if not (args.image_resolution.startswith('200') and args.image_resolution.endswith('200')):
+            print("WARNING: r = 200x200 recommended for github wiki images")
+
+        with Image.open(eqPath) as img:
+            width, height = img.size
+
+        return '[[' + eqPath + '|height=' + str(int(height/2.0)) + 'px]]'
 
     else:
         raise Exception("unrecognized embed style")
